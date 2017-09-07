@@ -1,0 +1,188 @@
+---
+title: "Effects of harmful weather events on population health and economic consequences"
+author: "Isabelle You"
+date: "September 7, 2017"
+output: pdf_document
+---
+
+
+
+The basic goal of this project is to explore the NOAA Storm Database and the following questions about severe weather events:
+
+1. Across the United Sates, which types of events are the most harmful with respect to population health?
+2. Across the united States, which types of events have the greatest economic consequences?
+
+## Load and clean-up data
+
+data source: https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2
+
+### Download the NOAA data from website and read into R
+
+```{r}
+# load data into R
+
+rm(list=ls())
+
+library(ROracle)
+library(DBI)
+
+
+if (!file.exists("coursera")){dir.create("coursera")}
+fileurl="https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
+download.file(fileurl,destfile="~/R/coursera/stormdata.csv.bz2")
+datedownloaded=date()
+
+storm=read.csv("~/R/coursera/stormdata.csv.bz2", header=T, sep=",")
+```
+
+### Clean-up data
+
+```{r}
+# clea-up the data
+
+library(dplyr)
+
+# change storm type all in upper letters
+
+storm$EVTYPE=toupper(storm$EVTYPE)
+
+
+
+
+
+storm=storm %>% 
+        mutate (DEATH_INJURIES=FATALITIES+INJURIES) %>%
+        mutate(PROPDMG1=ifelse(PROPDMGEXP %in% c("K", "k"), PROPDMG*1000,
+                               ifelse(PROPDMGEXP %in% c("m", "M"), PROPDMG*1000000,
+                                      ifelse(PROPDMGEXP %in% c("B","b"), PROPDMG*1000000000, PROPDMG)))) %>%
+        mutate(PROPDMG_K=PROPDMG1/1000) %>%
+        mutate(CROPDMG1=ifelse(CROPDMGEXP %in% c("K", "k"), CROPDMG*1000,
+                               ifelse(CROPDMGEXP %in% c("m", "M"), CROPDMG*1000000,
+                                      ifelse(CROPDMGEXP %in% c("B","b"), CROPDMG*1000000000, CROPDMG)))) %>%
+        mutate(CROPDMG_K=CROPDMG1/1000) %>%
+        mutate(TOTALDMG_K=PROPDMG_K+CROPDMG_K)
+```
+
+## Data analysis
+
+### Which types of events are most harmful with respect to pupulation health
+
+```{r}
+# Top 10 most harmful events for fatalities
+
+T_death=storm %>%
+        group_by(EVTYPE) %>%
+        summarise(Total_death=sum(FATALITIES, na.rm=T)) %>%
+        arrange(desc(Total_death))
+
+Top10_death=head(T_death, n=10)
+
+print(Top10_death)
+```
+
+```{r}
+# Top 10 most harmful events for injuries
+
+T_injury=storm %>%
+        group_by(EVTYPE) %>%
+        summarise(Total_injury=sum(INJURIES, na.rm=T)) %>%
+        arrange(desc(Total_injury))
+
+Top10_injury=head(T_injury, n=10)
+
+print(Top10_injury)
+```
+
+```{r}
+# Top 10 most harmful events for death and injuries
+
+T_death_injury=storm %>%
+        group_by(EVTYPE) %>%
+        summarise(Total_death_injury=sum(DEATH_INJURIES, na.rm=T)) %>%
+        arrange(desc(Total_death_injury))
+
+Top10_death_injury=head(T_death_injury, n=10)
+
+print(Top10_death_injury)
+```
+
+
+### create a bar plot to show the top 20 most harmful weather events for fatalities
+
+```{r}
+library(ggplot2)
+
+Top20_death=head(T_death, n=20)
+
+              
+      g=ggplot(Top20_death, aes(x=EVTYPE, y=Total_death))
+      g+ geom_bar(position="dodge", stat="identity", col="blue") +
+              coord_flip() +
+              xlab("Weather Event") +
+              ylab("Total Number of Fatalities ") +
+              ggtitle("The Top 20 Most Harmful Weather Events for Fatalites ")
+```
+      
+      
+
+### Which types of events have the greatest economic consequeces 
+ 
+```{r}
+# Top 10 most harmful  events for property damage in thousand dollars
+      
+      T_propdmg=storm %>%
+              group_by(EVTYPE) %>%
+              summarise(Total_propdmg=sum(PROPDMG_K, na.rm=T)) %>%
+              arrange(desc(Total_propdmg))
+      
+      Top10_propdmg=head(T_propdmg, n=10)
+      
+      print(Top10_propdmg)
+```
+
+```{r}
+# Top 10 most harmful  events for crop damage in thousand dollars
+      
+      T_cropdmg=storm %>%
+              group_by(EVTYPE) %>%
+              summarise(Total_cropdmg=sum(CROPDMG_K, na.rm=T)) %>%
+              arrange(desc(Total_cropdmg))
+      
+      Top10_cropdmg=head(T_cropdmg, n=10)
+      
+      print(Top10_cropdmg)
+```
+
+```{r}
+# Top 10 most harmful  events for property and crop damage in thousand dollars
+      
+      T_totaldmg=storm %>%
+              group_by(EVTYPE) %>%
+              summarise(Totaldmg=sum(TOTALDMG_K, na.rm=T)) %>%
+              arrange(desc(Totaldmg))
+      
+      Top10_totaldmg=head(T_totaldmg, n=10)
+      
+      print(Top10_totaldmg)
+```    
+
+### create a bar plot to show the top 20 most harmful weather events for property and crop damage
+
+```{r}
+T_totaldmg=T_totaldmg %>%
+        mutate(Totaldmg_in_M=Totaldmg/1000)
+
+      
+Top20_totaldmg=head(T_totaldmg, n=20)      
+      
+      g=ggplot(Top20_totaldmg, aes(x=EVTYPE, y=Totaldmg_in_M))
+      g+ geom_bar(position="dodge", stat="identity", col="green") +
+              coord_flip() +
+              xlab("Weather Event") +
+              ylab("Total Damage in Million Dollars ") +
+              ggtitle("The Top 20 Most Harmful Weather Events for Property and Crop Damage")
+```
+
+## Conclusion
+
+The severe weather events caused lots of deaths and injuries and hugh property and crop damage. The top 3 harmful weather events for fatalities were tornado, excessive heat, and flash flood. The 3 worst weather events caused injuries were tornado, TSTM wind, and flood. Compared to other severe weather events, tornada caused far more deaths and injuries in the United States. Top 3 severe weather events  for property damage were Flood, hurricane/typhoon, and flood. Top 3 harmful weather events for crop damage were drought, flood and river flood. Flood, hurricane/typhoon, and tornada were the 3 morst events for property and crop damage.
